@@ -1,37 +1,77 @@
+<a id="top"></a>
+
+English | [中文](README_zh.md#zh)
+
 # Codify
 
-[![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fowner%2Fname%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/)
-[![](https://img.shields.io/badge/platforms-iOS%20%7C%20macOS%20%7C%20watchOS%20%7C%20tvOS-333333.svg)](https://developer.apple.com/swift/)
-
-**Codify** is a powerful Swift Macro library designed to eliminate the boilerplate code often associated with `Codable`. It provides a declarative way to customize JSON key mapping, set default values, and apply naming strategies directly via attributes.
-
-**Codify** 是一个强大的 Swift Macro 库，旨在消除 `Codable` 中常见的样板代码。它提供了一种声明式的方法，通过注解直接定制 JSON 键映射、设置默认值并应用命名策略。
-
----
-
-## 🌍 Language / 语言
-
-- [English](#english)
-- [中文 (Chinese)](#中文-chinese)
-
----
-
 <a id="english"></a>
-## 🇬🇧 English
 
-### Features
+## Features
+- Generate `CodingKeys`, `init(from:)`, and `encode(to:)` for structs with `@Codify`.
+- Customize coding keys per property via `@CustomCodingKey("...")`.
+- Apply struct- or property-level `CodingKeyPrefix`/`CodingKeySuffix`.
+- Transform key casing with macros like `CamelCase`, `SnakeCase`, `PascalCase`, etc.
+- Provide default decoding values using `@DefaultValue(T)` or `let age: Int = 0`.
+- Centralized macro diagnostics with bilingual error codes and hints.
 
-* **@DefaultValue**: Provide default values for properties when JSON fields are missing or `null`.
-* **@CodingKeyPrefix / @CodingKeySuffix**: Automatically add prefixes or suffixes to mapping keys (supports both Struct level and Property level).
-* **@CustomCodingKey**: Map a property to a completely different JSON key.
-* **@CamelCase**: Easily handle snake_case to camelCase conversion.
-* **Zero Boilerplate**: No need to manually write `CodingKeys` enum or `init(from:)` decoder logic.
+## Installation
+- Add this repository as a dependency in your Swift Package Manager `Package.swift`.
+- Import `Codify` in your target source files.
+- Build with `swift build` and run tests with `swift test`.
 
-### Installation
-
-Add Codify to your project using Swift Package Manager.
+Example dependency entry (replace URL and version to match your setup):
 
 ```swift
 dependencies: [
-    .package(url: "[https://github.com/yourname/Codify.git](https://github.com/yourname/Codify.git)", from: "1.0.0")
+    .package(url: "https://github.com/your-org/Codify.git", from: "0.1.0")
 ]
+```
+
+## Usage
+```swift
+import Codify
+
+@CodingKeyPrefix("prefix1_")
+@CodingKeySuffix("_suffix1")
+@Codify
+public struct Cat: Codable {
+    @CodingKeyPrefix("prefix_")
+    @CodingKeySuffix("_suffix")
+    @CustomCodingKey("custom_id")
+    let id: Int
+
+    @DefaultValue("title")
+    let title: String
+
+    @DefaultValue(1)
+    @CodingKeyPrefix("prefix_")
+    @CodingKeySuffix("_suffix")
+    var count: Int = 2
+
+    let description: Optional<String>
+    let name: String?
+
+    @CamelCase
+    let cat_name: String
+}
+```
+
+Build and test:
+
+```bash
+swift build
+swift test -q
+```
+
+## Macros Reference
+- `@Codify`: Attaches generated `CodingKeys`, `init(from:)`, and `encode(to:)` to a struct.
+- `@DefaultValue<T>(value)`: Supplies a default when decoding missing or null fields.
+- `@CustomCodingKey("string")`: Overrides the coding key for a property.
+- `@CodingKeyPrefix("string")`, `@CodingKeySuffix("string")`: Adds prefix/suffix to coding keys.
+- Case macros:
+  - `@CamelCase`, `@FlatCase`, `@PascalCase`, `@UpperCase`
+  - `@SnakeCase`, `@CamelSnakeCase`, `@PascalSnakeCase`, `@ScreamingSnakeCase`
+  - `@KebabCase`, `@CamelKebabCase`, `@PascalKebabCase`, `@ScreamingKebabCase`
+
+[Back to top](#top)
+
