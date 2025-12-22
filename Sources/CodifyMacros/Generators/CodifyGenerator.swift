@@ -42,40 +42,49 @@ struct CodifyGenerator {
 
     /// EN: Build `init(from:)` decoding logic for members
     /// ZH: 为成员构造 `init(from:)` 解码逻辑
-    func buildInitFromDecoder(_ members: [StructMemberDeclInfo], _ accessModifierStr: String) -> DeclSyntax {
-        let content = members.map { property -> String in
-            let defaultAttr = property.attributes.first { $0.attributeName.trimmedDescription == defaultValueSyntaxName }
-            let defaultValue = findAttribute(from: property.attributes, byName: defaultValueSyntaxName)
-            // EN: Emit error when @DefaultValue is present without argument
-            // ZH: 当存在 @DefaultValue 却未提供参数时抛出错误
-            if defaultAttr != nil && defaultValue == nil {
-                if let node = defaultAttr {
-                    context.diagnose(Diagnostic(node: node, message: DefaultValueMacroDiagnostic.missingDefaultValue(property.name)))
-                } else {
-                    context.diagnose(Diagnostic(node: declaration, message: DefaultValueMacroDiagnostic.missingDefaultValue(property.name)))
-                }
-            }
-            if let value = property.value ?? defaultValue {
-                return "self.\(property.name) = try container.decodeIfPresent(\(property.type).self, forKey: .\(property.name)) ?? \(value)"
-            } else if property.isOptional {
-                return "self.\(property.name) = try container.decodeIfPresent(\(property.type).self, forKey: .\(property.name))"
-            } else {
-                return "self.\(property.name) = try container.decode(\(property.type).self, forKey: .\(property.name))"
-            }
-        }.joined(separator: "\n")
+    func buildInitFromDecoder(_ members: [StructMemberDeclInfo], _ accessModifierStr: String) throws -> DeclSyntax {
+//        let content = members.map { property -> String in
+//            let defaultAttr = property.attributes.first { $0.attributeName.trimmedDescription == defaultValueSyntaxName }
+//            let defaultValue = findAttribute(from: property.attributes, byName: defaultValueSyntaxName)
+//            // EN: Emit error when @DefaultValue is present without argument
+//            // ZH: 当存在 @DefaultValue 却未提供参数时抛出错误
+//            if defaultAttr != nil && defaultValue == nil {
+//                if let node = defaultAttr {
+//                    context.diagnose(Diagnostic(node: node, message: CodifyMacroDiagnostic.missingDefaultValue(property.name)))
+//                } else {
+//                    context.diagnose(Diagnostic(node: declaration, message: CodifyMacroDiagnostic.missingDefaultValue(property.name)))
+//                }
+//            }
+//            if let value = property.value ?? defaultValue {
+//                return "self.\(property.name) = try container.decodeIfPresent(\(property.typeDesc).self, forKey: .\(property.name)) ?? \(value)"
+//            } else if property.isOptional {
+//                return "self.\(property.name) = try container.decodeIfPresent(\(property.typeDesc).self, forKey: .\(property.name))"
+//            } else if let element = property.type.arrayElementType, element.optionalWrappedTypeDesc == nil {
+////                context.diagnose(Diagnostic(node: declaration, message: CodifyMacroDiagnostic.underlying("\(element.optionalWrappedType)")))
+//                return "self.\(property.name) = try container.decode([\(element.trimmedDescription)].self, forKey: .\(property.name))"
+//            }
+//            return "self.\(property.name) = try container.decode(\(property.typeDesc).self, forKey: .\(property.name))"
+//        }.joined(separator: "\n")
+        let content = try members.map { try $0.decodeDesc(defaultValueSyntaxName) }.joined(separator: "\n")
         
-        return """
-        \(raw: accessModifierStr)init(from decoder: Decoder) throws {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
-            \(raw: content)
-        }
-        """
+        return
+            """
+            \(raw: accessModifierStr)init(from decoder: Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                \(raw: content)
+            }
+            """
     }
 
     /// EN: Build `encode(to:)` for members
     /// ZH: 为成员构造 `encode(to:)`
     func buildEncodeToEncoder(_ members: [StructMemberDeclInfo], _ accessModifierStr: String) -> DeclSyntax {
-        let content = members.map { "try container.encode(self.\($0.name), forKey: .\($0.name))" }.joined(separator: "\n")
+        let content = members.map { prop -> String in
+            if prop.isOptional {
+                return "try container.encodeIfPresent(self.\(prop.name), forKey: .\(prop.name))"
+            }
+            return "try container.encode(self.\(prop.name), forKey: .\(prop.name))"
+        }.joined(separator: "\n")
         return """
         \(raw: accessModifierStr)func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
@@ -95,11 +104,12 @@ struct CodifyGenerator {
     func hasExistingInitFromDecoder() -> Bool {
         declaration.memberBlock.members.contains { member in
             if let initDecl = member.decl.as(InitializerDeclSyntax.self) {
+//                throw CodifyMacroDiagnostic.underlying("\(initDecl.signature.parameterClause.parameters.first!.type.protocolDescriptions())")
                 // 检查参数是否包含 "from decoder"
                 return initDecl.signature.parameterClause.parameters.contains { param in
                     param.firstName.text == "from" &&
                     param.secondName?.text == "decoder" &&
-                    param.type.as(SomeOrAnyTypeSyntax.self)?.getProtocolDescriptions().contains("Decoder") == true
+                    param.type.isProtocolName("Decoder")
                 }
             }
             return false
@@ -116,7 +126,7 @@ struct CodifyGenerator {
                 funcDecl.signature.parameterClause.parameters.contains { param in
                     param.firstName.text == "to" &&
                     param.secondName?.text == "encoder" &&
-                    param.type.as(SomeOrAnyTypeSyntax.self)?.getProtocolDescriptions().contains("Encoder") == true
+                    param.type.isProtocolName("Encoder")
                 }
             }
             return false
@@ -127,29 +137,34 @@ struct CodifyGenerator {
     /// ZH: 生成 CodingKeys 与 Codable 成员，保留已有实现
     func generate() -> [DeclSyntax] {
         // 检查是否已经存在相关方法
-        let hasInitFromDecoder = hasExistingInitFromDecoder()
-        let hasEncodeToEncoder = hasExistingEncodeToEncoder()
+//        let hasInitFromDecoder = hasExistingInitFromDecoder()
+//        let hasEncodeToEncoder = hasExistingEncodeToEncoder()
         
         var declarations = [DeclSyntax]()
         let accessModifierStr = accessModifier.flatMap({ $0.name.text + " " }) ?? ""
         
-        do {
-            let codingKeys = try codingKeysGenerator.generate(accessModifier: accessModifier)
-            declarations.append(codingKeys)
-        } catch {
-//            if let diagnostic = (error as? DiagnosticsError)?.diagnostics.first {
-//                context.diagnose(diagnostic)
-//            } else {
-//                context.addDiagnostics(from: error, node: node)
-//            }
-            context.addDiagnostics(from: error, node: node)
+        // 检查是否已经存在 `CodingKeys`
+        if !structDeclInfo.hasCodingKeys {
+            do {
+                let codingKeys = try codingKeysGenerator.generate(accessModifier: accessModifier)
+                declarations.append(codingKeys)
+            } catch {
+                context.addDiagnostics(from: error, node: node)
+            }
         }
-        
-        if !hasInitFromDecoder {
-            declarations.append(buildInitFromDecoder(structDeclInfo.propertyInfos, accessModifierStr))
+        // 检查是否已经存在 `InitFromDecoder`
+        if !hasExistingInitFromDecoder() {
+//            return ["test"]
+            do {
+                let fun = try buildInitFromDecoder(structDeclInfo.memberDeclInfo, accessModifierStr)
+                declarations.append(fun)
+            } catch {
+                context.addDiagnostics(from: error, node: node)
+            }
         }
-        if !hasEncodeToEncoder {
-            declarations.append(buildEncodeToEncoder(structDeclInfo.propertyInfos, accessModifierStr))
+        // 检查是否已经存在 `EncodeToEncoder`
+        if !hasExistingEncodeToEncoder() {
+            declarations.append(buildEncodeToEncoder(structDeclInfo.memberDeclInfo, accessModifierStr))
         }
         
         return declarations

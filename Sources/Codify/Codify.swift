@@ -13,6 +13,12 @@ public macro Codify() = #externalMacro(module: "CodifyMacros", type: "CodifyMacr
 @attached(peer, names: named(==))
 public macro DefaultValue<T>(_ value: T) = #externalMacro(module: "CodifyMacros", type: "DefaultValueMacro")
 
+@attached(peer, names: named(==))
+public macro SkipNull() = #externalMacro(module: "CodifyMacros", type: "SkipNullMacro")
+
+@attached(peer, names: named(==))
+public macro Lossless() = #externalMacro(module: "CodifyMacros", type: "LosslessMacro")
+
 /// EN: Use a custom String value for a property's CodingKey
 /// ZH: 为属性的 CodingKey 指定自定义字符串值
 @attached(peer)

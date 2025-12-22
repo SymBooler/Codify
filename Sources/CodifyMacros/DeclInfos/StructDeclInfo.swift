@@ -20,11 +20,11 @@ struct StructDeclInfo {
     let codingAttributes: [CodingAttributeInfo]
     let codingKeyPrefix: String?
     let codingKeySuffix: String?
-    let propertyInfos: [StructMemberDeclInfo]
+    let memberDeclInfo: [StructMemberDeclInfo]
         
     init(declaration: DeclGroupSyntax) throws {
         guard let structDecl = declaration.as(StructDeclSyntax.self) else {
-            throw DiagnosticsError(diagnostics: [Diagnostic(node: declaration, message: DefaultValueMacroDiagnostic.notStruct)])
+            throw DiagnosticsError(diagnostics: [Diagnostic(node: declaration, message: CodifyMacroDiagnostic.notStruct)])
         }
         try self.init(declaration: structDecl)
     }
@@ -35,7 +35,7 @@ struct StructDeclInfo {
         codingAttributes = declaration.attributes.codingAttributes
         codingKeyPrefix = try declaration.parameterValue(for: CodingKeyPrefixMacro.macroName)
         codingKeySuffix = try declaration.parameterValue(for: CodingKeySuffixMacro.macroName)
-        propertyInfos = try declaration.memberInfo()
+        memberDeclInfo = try declaration.memberInfo()
     }
     
     var hasCodingKeys: Bool { codingKeyEnumDeclSyntax != nil }

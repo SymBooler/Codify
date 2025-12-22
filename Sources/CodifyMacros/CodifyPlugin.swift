@@ -25,5 +25,7 @@ struct CodifyPlugin: CompilerPlugin {
         CamelKebabCaseMacro.self,
         PascalKebabCaseMacro.self,
         ScreamingKebabCaseMacro.self,
+        SkipNullMacro.self,
+        LosslessMacro.self,
     ]
 }

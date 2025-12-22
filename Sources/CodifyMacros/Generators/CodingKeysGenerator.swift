@@ -35,11 +35,11 @@ class CodingKeysGenerator {
     /// ZH: 生成 CodingKeys 声明；对非法配置抛出诊断
     func generate(accessModifier: DeclModifierSyntax?, insideExtension: Bool = false) throws -> DeclSyntax {
         guard let attributeName = node.attributeName.as(IdentifierTypeSyntax.self)?.name.text else {
-            throw DiagnosticsError(diagnostics: [.init(node: node, syntaxError: CodingKeyMacroDiagnostic.requiresCodableMacro(name: CodifyMacro.macroName))])
+            throw DiagnosticsError(diagnostics: [.init(node: node, syntaxError: CodifyMacroDiagnostic.requiresCodableMacro(name: CodifyMacro.macroName))])
         }
 
         guard structDef.attributeNameCanGenerate(name: attributeName) else {
-            throw DiagnosticsError(diagnostics: [.init(node: node, syntaxError: CodingKeyMacroDiagnostic.requiresCodableMacro(name: attributeName))])
+            throw DiagnosticsError(diagnostics: [.init(node: node, syntaxError: CodifyMacroDiagnostic.requiresCodableMacro(name: attributeName))])
         }
 
         guard !structDef.hasCodingKeys else {
@@ -53,8 +53,9 @@ class CodingKeysGenerator {
         }
 
         let cases = try declaration.memberBlock.members.compactMap { member -> CodingKeyInfo? in
-            let property = try StructMemberDeclInfo(element: member)
-            guard var codingKey = try makeCodingKeyInfo(from: property, syntax: member, in: structDef) else {
+            
+            guard let property = try StructMemberDeclInfo(element: member),
+                  var codingKey = try makeCodingKeyInfo(from: property, syntax: member, in: structDef) else {
                 return nil
             }
             if property.customCodingKey == nil {
